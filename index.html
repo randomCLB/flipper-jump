@@ -144,6 +144,7 @@
         let score = 0;
         let highScore = localStorage.getItem('flipperHighScore') || 0;
         let frames = 0;
+        let pipeSpeed = 2; // 初始速度，逐渐加速
         
         document.getElementById('highScore').textContent = `最高: ${highScore}`;
         
@@ -154,15 +155,15 @@
             width: 50,
             height: 35,
             velocity: 0,
-            gravity: 0.25,
-            jumpStrength: -6.5,
+            gravity: 0.2, // 降低重力
+            jumpStrength: -5.5, // 降低跳跃力度
             rotation: 0
         };
         
         // Pipes
         let pipes = [];
         const pipeWidth = 60;
-        const pipeGap = 150;
+        const pipeGap = 180; // 加大间隙，更容易通过
         
         // Bubbles
         let bubbles = [];
@@ -322,17 +323,21 @@
         }
         
         function update() {
+            // 速度随分数增加而加快
+            pipeSpeed = 2 + Math.min(score / 10, 2); // 从2逐渐加快到最大4
+            
             // Add new pipe
-            if (frames % 90 === 0) {
-                const minPipe = 80;
-                const maxPipe = canvas.height - 150;
+            if (frames % 100 === 0) { // 降低生成频率
+                const minPipe = 100; // 加大最小间隙
+                const maxPipe = canvas.height - 200; // 加大最大间隙
                 const topHeight = Math.random() * (maxPipe - minPipe) + minPipe;
                 
                 pipes.push({
                     x: canvas.width,
                     top: topHeight,
                     bottom: canvas.height - topHeight - pipeGap,
-                    passed: false
+                    passed: false,
+                    speed: pipeSpeed // 记录生成时的速度
                 });
             }
             
@@ -355,7 +360,7 @@
             
             // Update pipes
             for (let i = 0; i < pipes.length; i++) {
-                pipes[i].x -= 3;
+                pipes[i].x -= pipeSpeed;
                 
                 const pipe = pipes[i];
                 
@@ -369,8 +374,9 @@
                     return;
                 }
                 
-                // Score
-                if (pipe.x + pipeWidth < dolphin.x && !pipe.passed) {
+                // Score - 根据管子记录的速度判断
+                const speedForScore = pipe.speed || 3;
+                if (pipe.x + pipeWidth < dolphin.x + 10 && !pipe.passed) {
                     score++;
                     document.getElementById('score').textContent = score;
                     pipe.passed = true;
