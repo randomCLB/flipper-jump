@@ -442,7 +442,7 @@
         }
         
         // Controls
-        canvas.addEventListener('click', () => {
+        canvas.addEventListener('click', (e) => { e.preventDefault();
             if (gameRunning) dolphin.jump();
         });
         
