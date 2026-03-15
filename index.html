@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flipper Jump - 海豚跳跳</title>
+    <title>海豚跳跳 - Flipper Jump</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap');
         
@@ -22,6 +22,7 @@
             justify-content: center;
             font-family: 'Bubblegum Sans', cursive;
             overflow: hidden;
+            user-select: none;
         }
         
         h1 {
@@ -40,6 +41,7 @@
             border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            cursor: pointer;
         }
         
         canvas {
@@ -76,7 +78,6 @@
             font-family: 'Bubblegum Sans', cursive;
             color: #000;
             margin-top: 20px;
-            transition: transform 0.2s;
         }
         
         .btn:hover {
@@ -92,6 +93,7 @@
             color: white;
             text-shadow: 2px 2px 0 #000;
             z-index: 5;
+            pointer-events: none;
         }
         
         #highScore {
@@ -103,6 +105,7 @@
             color: #FFD700;
             text-shadow: 1px 1px 0 #000;
             z-index: 5;
+            pointer-events: none;
         }
         
         .instructions {
@@ -113,22 +116,22 @@
     </style>
 </head>
 <body>
-    <h1>🐬 Flipper Jump 🐬</h1>
+    <h1>🐬 海豚跳跳 🐬</h1>
     <div id="gameContainer">
         <canvas id="gameCanvas" width="400" height="600"></canvas>
         <div id="score">0</div>
-        <div id="highScore">Best: 0</div>
+        <div id="highScore">最高: 0</div>
         
         <div id="startScreen">
-            <p class="instructions">点击或按空格键跳跃</p>
+            <p class="instructions">点击屏幕或按空格键跳跃</p>
             <p class="instructions">让海豚在海洋中飞翔</p>
-            <button class="btn" onclick="startGame()">开始游戏</button>
+            <button class="btn" id="startBtn">开始游戏</button>
         </div>
         
         <div id="gameOverScreen">
             <h2>游戏结束!</h2>
             <p class="instructions">得分: <span id="finalScore">0</span></p>
-            <button class="btn" onclick="startGame()">再玩一次</button>
+            <button class="btn" id="restartBtn">再玩一次</button>
         </div>
     </div>
 
@@ -142,119 +145,102 @@
         let highScore = localStorage.getItem('flipperHighScore') || 0;
         let frames = 0;
         
-        // Update high score display
-        document.getElementById('highScore').textContent = `Best: ${highScore}`;
+        document.getElementById('highScore').textContent = `最高: ${highScore}`;
         
         // Dolphin
-        const dolphin = {
+        let dolphin = {
             x: 80,
             y: 200,
             width: 50,
             height: 35,
             velocity: 0,
             gravity: 0.25,
-            jump: -6.5,
-            rotation: 0,
-            
-            draw() {
-                ctx.save();
-                ctx.translate(this.x + this.width/2, this.y + this.height/2);
-                this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, this.velocity * 0.1));
-                ctx.rotate(this.rotation);
-                
-                // Body
-                ctx.fillStyle = '#4A90D9';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, 25, 15, 0, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Belly
-                ctx.fillStyle = '#87CEEB';
-                ctx.beginPath();
-                ctx.ellipse(-5, 5, 15, 8, 0, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Head
-                ctx.fillStyle = '#4A90D9';
-                ctx.beginPath();
-                ctx.arc(20, -5, 12, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Eye
-                ctx.fillStyle = 'white';
-                ctx.beginPath();
-                ctx.arc(24, -7, 4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = 'black';
-                ctx.beginPath();
-                ctx.arc(25, -7, 2, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Beak
-                ctx.fillStyle = '#FF8C00';
-                ctx.beginPath();
-                ctx.moveTo(30, -5);
-                ctx.lineTo(38, -2);
-                ctx.lineTo(30, 1);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Dorsal fin
-                ctx.fillStyle = '#4A90D9';
-                ctx.beginPath();
-                ctx.moveTo(-5, -15);
-                ctx.lineTo(0, -25);
-                ctx.lineTo(8, -15);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Tail
-                ctx.fillStyle = '#4A90D9';
-                ctx.beginPath();
-                ctx.moveTo(-25, 0);
-                ctx.lineTo(-35, -10);
-                ctx.lineTo(-35, 10);
-                ctx.closePath();
-                ctx.fill();
-                
-                // Flippers
-                ctx.fillStyle = '#4A90D9';
-                ctx.beginPath();
-                ctx.ellipse(5, 12, 8, 4, Math.PI / 6, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.restore();
-            },
-            
-            update() {
-                this.velocity += this.gravity;
-                this.y += this.velocity;
-                
-                // Floor collision
-                if (this.y + this.height > canvas.height - 20) {
-                    this.y = canvas.height - 20 - this.height;
-                    gameOver();
-                }
-                
-                // Ceiling collision
-                if (this.y < 0) {
-                    this.y = 0;
-                    this.velocity = 0;
-                }
-            },
-            
-            jump() {
-                this.velocity = this.jump;
-            }
+            jumpStrength: -6.5,
+            rotation: 0
         };
         
-        // Pipes (underwater rocks/coral)
-        const pipes = [];
+        // Pipes
+        let pipes = [];
         const pipeWidth = 60;
         const pipeGap = 150;
         
+        // Bubbles
+        let bubbles = [];
+        
+        function drawDolphin() {
+            ctx.save();
+            ctx.translate(dolphin.x + dolphin.width/2, dolphin.y + dolphin.height/2);
+            
+            // Rotation based on velocity
+            dolphin.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, dolphin.velocity * 0.1));
+            ctx.rotate(dolphin.rotation);
+            
+            // Body
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 25, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Belly
+            ctx.fillStyle = '#87CEEB';
+            ctx.beginPath();
+            ctx.ellipse(-5, 5, 15, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Head
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.arc(20, -5, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Eye
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(24, -7, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(25, -7, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Beak
+            ctx.fillStyle = '#FF8C00';
+            ctx.beginPath();
+            ctx.moveTo(30, -5);
+            ctx.lineTo(38, -2);
+            ctx.lineTo(30, 1);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Dorsal fin
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.moveTo(-5, -15);
+            ctx.lineTo(0, -25);
+            ctx.lineTo(8, -15);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Tail
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.moveTo(-25, 0);
+            ctx.lineTo(-35, -10);
+            ctx.lineTo(-35, 10);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Flippers
+            ctx.fillStyle = '#4A90D9';
+            ctx.beginPath();
+            ctx.ellipse(5, 12, 8, 4, Math.PI / 6, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
         function drawPipe(pipe) {
-            // Top pipe (coral/rock)
+            // Top pipe
             ctx.fillStyle = '#8B4513';
             ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
             
@@ -282,59 +268,6 @@
             ctx.fillRect(pipe.x + pipeWidth, canvas.height - pipe.bottom, 3, pipe.bottom);
         }
         
-        function updatePipes() {
-            // Add new pipe
-            if (frames % 90 === 0) {
-                const minPipe = 80;
-                const maxPipe = canvas.height - 150;
-                const topHeight = Math.random() * (maxPipe - minPipe) + minPipe;
-                
-                pipes.push({
-                    x: canvas.width,
-                    top: topHeight,
-                    bottom: canvas.height - topHeight - pipeGap
-                });
-            }
-            
-            // Move pipes
-            for (let i = 0; i < pipes.length; i++) {
-                pipes[i].x -= 3;
-                
-                // Collision detection
-                const pipe = pipes[i];
-                if (
-                    dolphin.x + dolphin.width > pipe.x &&
-                    dolphin.x < pipe.x + pipeWidth &&
-                    (dolphin.y < pipe.top || dolphin.y + dolphin.height > canvas.height - pipe.bottom)
-                ) {
-                    gameOver();
-                }
-                
-                // Score
-                if (pipe.x + pipeWidth < dolphin.x && !pipe.passed) {
-                    score++;
-                    document.getElementById('score').textContent = score;
-                    pipe.passed = true;
-                    
-                    // Update high score
-                    if (score > highScore) {
-                        highScore = score;
-                        localStorage.setItem('flipperHighScore', highScore);
-                        document.getElementById('highScore').textContent = `Best: ${highScore}`;
-                    }
-                }
-                
-                // Remove off-screen pipes
-                if (pipe.x + pipeWidth < 0) {
-                    pipes.shift();
-                    i--;
-                }
-            }
-        }
-        
-        // Background elements (bubbles)
-        const bubbles = [];
-        
         function drawBubbles() {
             if (frames % 30 === 0) {
                 bubbles.push({
@@ -354,11 +287,6 @@
                 ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
                 ctx.fill();
                 
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-                ctx.beginPath();
-                ctx.arc(bubble.x - bubble.size/3, bubble.y - bubble.size/3, bubble.size/3, 0, Math.PI * 2);
-                ctx.fill();
-                
                 if (bubble.y < -10) {
                     bubbles.shift();
                     i--;
@@ -366,12 +294,10 @@
             }
         }
         
-        // Draw sea floor
         function drawSeaFloor() {
             ctx.fillStyle = '#DEB887';
             ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
             
-            // Sand texture
             ctx.fillStyle = '#D2B48C';
             for (let i = 0; i < canvas.width; i += 30) {
                 ctx.beginPath();
@@ -391,28 +317,97 @@
             }
         }
         
-        // Main game loop
-        function gameLoop() {
-            if (!gameRunning) return;
+        function jump() {
+            dolphin.velocity = dolphin.jumpStrength;
+        }
+        
+        function update() {
+            // Add new pipe
+            if (frames % 90 === 0) {
+                const minPipe = 80;
+                const maxPipe = canvas.height - 150;
+                const topHeight = Math.random() * (maxPipe - minPipe) + minPipe;
+                
+                pipes.push({
+                    x: canvas.width,
+                    top: topHeight,
+                    bottom: canvas.height - topHeight - pipeGap,
+                    passed: false
+                });
+            }
             
-            // Clear canvas
+            // Update dolphin
+            dolphin.velocity += dolphin.gravity;
+            dolphin.y += dolphin.velocity;
+            
+            // Floor collision
+            if (dolphin.y + dolphin.height > canvas.height - 20) {
+                dolphin.y = canvas.height - 20 - dolphin.height;
+                gameOver();
+                return;
+            }
+            
+            // Ceiling collision
+            if (dolphin.y < 0) {
+                dolphin.y = 0;
+                dolphin.velocity = 0;
+            }
+            
+            // Update pipes
+            for (let i = 0; i < pipes.length; i++) {
+                pipes[i].x -= 3;
+                
+                const pipe = pipes[i];
+                
+                // Collision
+                if (
+                    dolphin.x + dolphin.width > pipe.x &&
+                    dolphin.x < pipe.x + pipeWidth &&
+                    (dolphin.y < pipe.top || dolphin.y + dolphin.height > canvas.height - pipe.bottom)
+                ) {
+                    gameOver();
+                    return;
+                }
+                
+                // Score
+                if (pipe.x + pipeWidth < dolphin.x && !pipe.passed) {
+                    score++;
+                    document.getElementById('score').textContent = score;
+                    pipe.passed = true;
+                    
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('flipperHighScore', highScore);
+                        document.getElementById('highScore').textContent = `最高: ${highScore}`;
+                    }
+                }
+                
+                // Remove off-screen pipes
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.shift();
+                    i--;
+                }
+            }
+        }
+        
+        function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Draw background
             drawBubbles();
             
-            // Draw and update pipes
             for (const pipe of pipes) {
                 drawPipe(pipe);
             }
-            updatePipes();
             
-            // Draw sea floor
             drawSeaFloor();
+            drawDolphin();
+        }
+        
+        function gameLoop() {
+            if (!gameRunning) return;
             
-            // Draw and update dolphin
-            dolphin.update();
-            dolphin.draw();
+            update();
+            draw();
             
             frames++;
             requestAnimationFrame(gameLoop);
@@ -422,11 +417,18 @@
             document.getElementById('startScreen').style.display = 'none';
             document.getElementById('gameOverScreen').style.display = 'none';
             
-            // Reset game
-            dolphin.y = 200;
-            dolphin.velocity = 0;
-            pipes.length = 0;
-            bubbles.length = 0;
+            dolphin = {
+                x: 80,
+                y: 200,
+                width: 50,
+                height: 35,
+                velocity: 0,
+                gravity: 0.25,
+                jumpStrength: -6.5,
+                rotation: 0
+            };
+            pipes = [];
+            bubbles = [];
             score = 0;
             frames = 0;
             document.getElementById('score').textContent = '0';
@@ -441,16 +443,23 @@
             document.getElementById('gameOverScreen').style.display = 'flex';
         }
         
-        // Controls
-        canvas.addEventListener('click', (e) => { e.preventDefault();
-            if (gameRunning) dolphin.jump();
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+        
+        // Click/tap to jump - on the game container
+        document.getElementById('gameContainer').addEventListener('click', function(e) {
+            if (gameRunning) {
+                jump();
+            }
         });
         
-        document.addEventListener('keydown', (e) => {
+        // Space key
+        document.addEventListener('keydown', function(e) {
             if (e.code === 'Space') {
                 e.preventDefault();
                 if (gameRunning) {
-                    dolphin.jump();
+                    jump();
                 } else if (document.getElementById('gameOverScreen').style.display === 'flex') {
                     startGame();
                 } else if (document.getElementById('startScreen').style.display !== 'none') {
@@ -459,10 +468,12 @@
             }
         });
         
-        // Touch support
-        canvas.addEventListener('touchstart', (e) => {
+        // Touch
+        document.getElementById('gameContainer').addEventListener('touchstart', function(e) {
             e.preventDefault();
-            if (gameRunning) dolphin.jump();
+            if (gameRunning) {
+                jump();
+            }
         });
     </script>
 </body>
