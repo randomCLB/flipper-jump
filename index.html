@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flipper Jump - 海豚跳跳</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(to bottom, #87CEEB 0%, #1E90FF 50%, #00008B 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Bubblegum Sans', cursive;
+            overflow: hidden;
+        }
+        
+        h1 {
+            color: white;
+            font-size: 3rem;
+            text-shadow: 3px 3px 0 #000;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            border: 4px solid #fff;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #87CEEB 0%, #1E90FF 60%, #006994 100%);
+        }
+        
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 10;
+        }
+        
+        #gameOverScreen {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(to bottom, #FFD700, #FFA500);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: 'Bubblegum Sans', cursive;
+            color: #000;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: scale(1.1);
+        }
+        
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.5rem;
+            color: white;
+            text-shadow: 2px 2px 0 #000;
+            z-index: 5;
+        }
+        
+        #highScore {
+            position: absolute;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1rem;
+            color: #FFD700;
+            text-shadow: 1px 1px 0 #000;
+            z-index: 5;
+        }
+        
+        .instructions {
+            font-size: 1.2rem;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🐬 Flipper Jump 🐬</h1>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="score">0</div>
+        <div id="highScore">Best: 0</div>
+        
+        <div id="startScreen">
+            <p class="instructions">点击或按空格键跳跃</p>
+            <p class="instructions">让海豚在海洋中飞翔</p>
+            <button class="btn" onclick="startGame()">开始游戏</button>
+        </div>
+        
+        <div id="gameOverScreen">
+            <h2>游戏结束!</h2>
+            <p class="instructions">得分: <span id="finalScore">0</span></p>
+            <button class="btn" onclick="startGame()">再玩一次</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Game state
+        let gameRunning = false;
+        let score = 0;
+        let highScore = localStorage.getItem('flipperHighScore') || 0;
+        let frames = 0;
+        
+        // Update high score display
+        document.getElementById('highScore').textContent = `Best: ${highScore}`;
+        
+        // Dolphin
+        const dolphin = {
+            x: 80,
+            y: 200,
+            width: 50,
+            height: 35,
+            velocity: 0,
+            gravity: 0.25,
+            jump: -6.5,
+            rotation: 0,
+            
+            draw() {
+                ctx.save();
+                ctx.translate(this.x + this.width/2, this.y + this.height/2);
+                this.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, this.velocity * 0.1));
+                ctx.rotate(this.rotation);
+                
+                // Body
+                ctx.fillStyle = '#4A90D9';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 25, 15, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Belly
+                ctx.fillStyle = '#87CEEB';
+                ctx.beginPath();
+                ctx.ellipse(-5, 5, 15, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Head
+                ctx.fillStyle = '#4A90D9';
+                ctx.beginPath();
+                ctx.arc(20, -5, 12, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Eye
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(24, -7, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(25, -7, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Beak
+                ctx.fillStyle = '#FF8C00';
+                ctx.beginPath();
+                ctx.moveTo(30, -5);
+                ctx.lineTo(38, -2);
+                ctx.lineTo(30, 1);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Dorsal fin
+                ctx.fillStyle = '#4A90D9';
+                ctx.beginPath();
+                ctx.moveTo(-5, -15);
+                ctx.lineTo(0, -25);
+                ctx.lineTo(8, -15);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Tail
+                ctx.fillStyle = '#4A90D9';
+                ctx.beginPath();
+                ctx.moveTo(-25, 0);
+                ctx.lineTo(-35, -10);
+                ctx.lineTo(-35, 10);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Flippers
+                ctx.fillStyle = '#4A90D9';
+                ctx.beginPath();
+                ctx.ellipse(5, 12, 8, 4, Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            },
+            
+            update() {
+                this.velocity += this.gravity;
+                this.y += this.velocity;
+                
+                // Floor collision
+                if (this.y + this.height > canvas.height - 20) {
+                    this.y = canvas.height - 20 - this.height;
+                    gameOver();
+                }
+                
+                // Ceiling collision
+                if (this.y < 0) {
+                    this.y = 0;
+                    this.velocity = 0;
+                }
+            },
+            
+            jump() {
+                this.velocity = this.jump;
+            }
+        };
+        
+        // Pipes (underwater rocks/coral)
+        const pipes = [];
+        const pipeWidth = 60;
+        const pipeGap = 150;
+        
+        function drawPipe(pipe) {
+            // Top pipe (coral/rock)
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(pipe.x, 0, pipeWidth, pipe.top);
+            
+            // Coral texture
+            ctx.fillStyle = '#A0522D';
+            for (let i = 0; i < pipe.top; i += 20) {
+                ctx.fillRect(pipe.x + 5, i, pipeWidth - 10, 10);
+            }
+            
+            // Bottom pipe
+            ctx.fillStyle = '#8B4513';
+            ctx.fillRect(pipe.x, canvas.height - pipe.bottom, pipeWidth, pipe.bottom);
+            
+            // Coral texture
+            ctx.fillStyle = '#A0522D';
+            for (let i = 0; i < pipe.bottom; i += 20) {
+                ctx.fillRect(pipe.x + 5, canvas.height - pipe.bottom + i, pipeWidth - 10, 10);
+            }
+            
+            // Pipe edges
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(pipe.x - 3, 0, 3, pipe.top);
+            ctx.fillRect(pipe.x + pipeWidth, 0, 3, pipe.top);
+            ctx.fillRect(pipe.x - 3, canvas.height - pipe.bottom, 3, pipe.bottom);
+            ctx.fillRect(pipe.x + pipeWidth, canvas.height - pipe.bottom, 3, pipe.bottom);
+        }
+        
+        function updatePipes() {
+            // Add new pipe
+            if (frames % 90 === 0) {
+                const minPipe = 80;
+                const maxPipe = canvas.height - 150;
+                const topHeight = Math.random() * (maxPipe - minPipe) + minPipe;
+                
+                pipes.push({
+                    x: canvas.width,
+                    top: topHeight,
+                    bottom: canvas.height - topHeight - pipeGap
+                });
+            }
+            
+            // Move pipes
+            for (let i = 0; i < pipes.length; i++) {
+                pipes[i].x -= 3;
+                
+                // Collision detection
+                const pipe = pipes[i];
+                if (
+                    dolphin.x + dolphin.width > pipe.x &&
+                    dolphin.x < pipe.x + pipeWidth &&
+                    (dolphin.y < pipe.top || dolphin.y + dolphin.height > canvas.height - pipe.bottom)
+                ) {
+                    gameOver();
+                }
+                
+                // Score
+                if (pipe.x + pipeWidth < dolphin.x && !pipe.passed) {
+                    score++;
+                    document.getElementById('score').textContent = score;
+                    pipe.passed = true;
+                    
+                    // Update high score
+                    if (score > highScore) {
+                        highScore = score;
+                        localStorage.setItem('flipperHighScore', highScore);
+                        document.getElementById('highScore').textContent = `Best: ${highScore}`;
+                    }
+                }
+                
+                // Remove off-screen pipes
+                if (pipe.x + pipeWidth < 0) {
+                    pipes.shift();
+                    i--;
+                }
+            }
+        }
+        
+        // Background elements (bubbles)
+        const bubbles = [];
+        
+        function drawBubbles() {
+            if (frames % 30 === 0) {
+                bubbles.push({
+                    x: Math.random() * canvas.width,
+                    y: canvas.height,
+                    size: Math.random() * 10 + 5,
+                    speed: Math.random() * 2 + 1
+                });
+            }
+            
+            for (let i = 0; i < bubbles.length; i++) {
+                const bubble = bubbles[i];
+                bubble.y -= bubble.speed;
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.beginPath();
+                ctx.arc(bubble.x, bubble.y, bubble.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.beginPath();
+                ctx.arc(bubble.x - bubble.size/3, bubble.y - bubble.size/3, bubble.size/3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (bubble.y < -10) {
+                    bubbles.shift();
+                    i--;
+                }
+            }
+        }
+        
+        // Draw sea floor
+        function drawSeaFloor() {
+            ctx.fillStyle = '#DEB887';
+            ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+            
+            // Sand texture
+            ctx.fillStyle = '#D2B48C';
+            for (let i = 0; i < canvas.width; i += 30) {
+                ctx.beginPath();
+                ctx.arc(i, canvas.height - 10, 10, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // Seaweed
+            ctx.fillStyle = '#228B22';
+            for (let i = 20; i < canvas.width; i += 60) {
+                const sway = Math.sin(frames * 0.05 + i) * 5;
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 20);
+                ctx.quadraticCurveTo(i + sway, canvas.height - 50, i, canvas.height - 80);
+                ctx.quadraticCurveTo(i - sway, canvas.height - 50, i + 10, canvas.height - 20);
+                ctx.fill();
+            }
+        }
+        
+        // Main game loop
+        function gameLoop() {
+            if (!gameRunning) return;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            drawBubbles();
+            
+            // Draw and update pipes
+            for (const pipe of pipes) {
+                drawPipe(pipe);
+            }
+            updatePipes();
+            
+            // Draw sea floor
+            drawSeaFloor();
+            
+            // Draw and update dolphin
+            dolphin.update();
+            dolphin.draw();
+            
+            frames++;
+            requestAnimationFrame(gameLoop);
+        }
+        
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOverScreen').style.display = 'none';
+            
+            // Reset game
+            dolphin.y = 200;
+            dolphin.velocity = 0;
+            pipes.length = 0;
+            bubbles.length = 0;
+            score = 0;
+            frames = 0;
+            document.getElementById('score').textContent = '0';
+            
+            gameRunning = true;
+            gameLoop();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOverScreen').style.display = 'flex';
+        }
+        
+        // Controls
+        canvas.addEventListener('click', () => {
+            if (gameRunning) dolphin.jump();
+        });
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (gameRunning) {
+                    dolphin.jump();
+                } else if (document.getElementById('gameOverScreen').style.display === 'flex') {
+                    startGame();
+                } else if (document.getElementById('startScreen').style.display !== 'none') {
+                    startGame();
+                }
+            }
+        });
+        
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameRunning) dolphin.jump();
+        });
+    </script>
+</body>
+</html>
