@@ -144,7 +144,8 @@
         let score = 0;
         let highScore = localStorage.getItem('flipperHighScore') || 0;
         let frames = 0;
-        let pipeSpeed = 1.8; // 初始速度，更慢
+        const gameSpeed = 0.5; // 整体游戏速度减半
+        let pipeSpeed = 1.8 * gameSpeed;
         
         document.getElementById('highScore').textContent = `最高: ${highScore}`;
         
@@ -155,15 +156,15 @@
             width: 40,  // 从50减小到40
             height: 28,  // 从35减小到28
             velocity: 0,
-            gravity: 0.2, // 降低重力
-            jumpStrength: -5.5, // 降低跳跃力度
+            gravity: 0.25,
+            jumpStrength: -6.5,
             rotation: 0
         };
         
         // Pipes
         let pipes = [];
         const pipeWidth = 60;
-        const pipeGap = 200; // 加大间隙，更容易通过
+        const pipeGap = 240; // 加大间隙，更容易通过
         
         // Bubbles
         let bubbles = [];
@@ -324,12 +325,12 @@
         
         function update() {
             // 速度随分数增加而加快，但更慢
-            pipeSpeed = 1.8 + Math.min(score / 15, 1.5); // 从1.8逐渐加快到最大3.3
+            pipeSpeed = (1.8 + Math.min(score / 15, 1.5)) * gameSpeed; // 从0.9逐渐加快到最大1.65
             
             // Add new pipe
-            if (frames % 110 === 0) { // 降低生成频率
+            if (frames % (110 / gameSpeed) === 0) { // 减速后保持障碍间距
                 const minPipe = 120; // 加大最小间隙
-                const maxPipe = canvas.height - 250; // 加大最大间隙
+                const maxPipe = canvas.height - pipeGap - 50;
                 const topHeight = Math.random() * (maxPipe - minPipe) + minPipe;
                 
                 pipes.push({
@@ -342,8 +343,8 @@
             }
             
             // Update dolphin
-            dolphin.velocity += dolphin.gravity;
-            dolphin.y += dolphin.velocity;
+            dolphin.velocity += dolphin.gravity * gameSpeed;
+            dolphin.y += dolphin.velocity * gameSpeed;
             
             // Floor collision
             if (dolphin.y + dolphin.height > canvas.height - 20) {
@@ -426,8 +427,8 @@
             dolphin = {
                 x: 80,
                 y: 200,
-                width: 50,
-                height: 35,
+                width: 40,
+                height: 28,
                 velocity: 0,
                 gravity: 0.25,
                 jumpStrength: -6.5,
